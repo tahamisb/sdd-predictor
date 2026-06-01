@@ -49,6 +49,7 @@
         .post { color: #00ff88; font-size: 24px; font-weight: bold; }
         .wait { color: #ff4444; font-size: 24px; font-weight: bold; }
         label { font-size: 12px; color: #aaa; margin-left: 4px; }
+        .stat { color: #aaa; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -57,29 +58,8 @@
 
     <button id="autofill-btn" onclick="autofill()">⚡ Auto-fill from Thunderstrike</button>
 
-    <label>Hour (0-23 UTC)</label>
-    <input type="number" id="hour" placeholder="e.g. 14">
-    
-    <label>Day of week (0=Mon, 6=Sun)</label>
-    <input type="number" id="day_of_week" placeholder="e.g. 0">
-    
-    <label>Market avg (copper)</label>
-    <input type="number" id="marketAvg" placeholder="e.g. 6500">
-    
-    <label>Quantity listed</label>
-    <input type="number" id="quantity" placeholder="e.g. 3000">
-    
-    <label>Number of auctions</label>
-    <input type="number" id="auctions" placeholder="e.g. 40">
-    
-    <label>Sold per day</label>
-    <input type="number" id="soldDay" placeholder="e.g. 1200">
-    
-    <label>Days since phase drop</label>
-    <input type="number" id="days_since_phase" placeholder="e.g. 16">
-    
     <label>Current listed price (copper)</label>
-    <input type="number" id="price" placeholder="e.g. 5500">
+    <input type="number" id="price" placeholder="e.g. 7159">
 
     <button onclick="predict()">Should I post?</button>
 
@@ -87,68 +67,53 @@
         <p>Current price: <span id="current"></span>s</p>
         <p>Predicted fair value: <span id="predicted"></span>s</p>
         <p>Difference: <span id="diff"></span>s</p>
+        <p class="stat">Price trend (last 6h): <span id="trend"></span></p>
+        <p class="stat">Volatility: <span id="volatility"></span>s</p>
         <p class="" id="recommendation"></p>
     </div>
 
     <script>
         async function autofill() {
-    try {
-        const response = await fetch('/fetch-latest')
-        const latest = await response.json()
-        
-        const phaseDate = new Date('2026-05-16T00:00:00Z')
-        const now = new Date(latest.timestamp)
-        const daysSincePhase = (now - phaseDate) / (1000 * 60 * 60 * 24)
-        
-        const date = new Date(latest.timestamp)
-        const utcDay = date.getUTCDay()
-        const dayOfWeek = utcDay === 0 ? 6 : utcDay - 1
-        
-        document.getElementById('hour').value = date.getUTCHours()
-        document.getElementById('day_of_week').value = dayOfWeek
-        document.getElementById('marketAvg').value = latest.marketAvg
-        document.getElementById('quantity').value = latest.quantity
-        document.getElementById('auctions').value = latest.auctions
-        document.getElementById('soldDay').value = latest.soldDay || 0
-        document.getElementById('days_since_phase').value = daysSincePhase.toFixed(2)
-        document.getElementById('price').value = latest.price
-        
-    } catch(e) {
-        alert('Could not fetch from Thunderstrike')
-        console.error(e)
-    }
-
+            try {
+                const response = await fetch('/fetch-latest')
+                const latest = await response.json()
+                document.getElementById('price').value = latest.price
+            } catch(e) {
+                alert('Could not fetch from Thunderstrike')
+                console.error(e)
+            }
         }
 
         async function predict() {
-            const data = {
-                hour: +document.getElementById('hour').value,
-                day_of_week: +document.getElementById('day_of_week').value,
-                marketAvg: +document.getElementById('marketAvg').value,
-                quantity: +document.getElementById('quantity').value,
-                auctions: +document.getElementById('auctions').value,
-                soldDay: +document.getElementById('soldDay').value,
-                days_since_phase: +document.getElementById('days_since_phase').value,
-                price_vs_avg: +document.getElementById('marketAvg').value > 0 ? 
-                    +document.getElementById('price').value / +document.getElementById('marketAvg').value : 1,
-                price: +document.getElementById('price').value
-            }
+            const price = +document.getElementById('price').value
             
+            if (!price) {
+                alert('Please enter a price or use Auto-fill first')
+                return
+            }
+
             const response = await fetch('/predict', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
+                body: JSON.stringify({ price: price })
             })
             
             const result = await response.json()
+
+            if (result.error) {
+                alert('Error: ' + result.error)
+                return
+            }
             
             document.getElementById('current').textContent = result.current_price
             document.getElementById('predicted').textContent = result.predicted_price
             document.getElementById('diff').textContent = result.difference
+            document.getElementById('trend').textContent = result.price_trend
+            document.getElementById('volatility').textContent = result.volatility
             
             const rec = document.getElementById('recommendation')
             rec.textContent = result.recommendation
-            rec.className = result.recommendation === 'POST NOW' ? 'post' : 'wait'
+            rec.className = result.recommendation.includes('POST') ? 'post' : 'wait'
             
             document.getElementById('result').style.display = 'block'
         }

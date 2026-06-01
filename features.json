@@ -1,1 +1,1 @@
-["hour", "day_of_week", "marketAvg", "quantity", "auctions", "soldDay", "days_since_phase", "price_vs_avg"]
+["hour", "day_of_week", "marketAvg", "quantity", "auctions", "soldDay", "days_since_phase", "price_vs_avg", "price_1h_ago", "price_3h_ago", "price_6h_ago", "price_12h_ago", "price_change_1h", "price_change_6h", "rolling_mean_6h", "rolling_mean_12h", "rolling_std_6h"]
